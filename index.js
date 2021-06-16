@@ -19,16 +19,21 @@ let port = process.env.PORT;
 if (port == null || port == "") {
     port = 3030;
 }
-const INDEX = "/build/index.html";
+
 const express = require("express");
-const server = express()
-    .use((req, res) => res.sendFile(INDEX, { root: __dirname }))
-    .listen(port);
-const io = require("socket.io")(server, {
+const app = express();
+const server = require("http").createServer(app);
+const io = require("socket.io")(server);
+app.use(express.static(__dirname + "/build"));
+app.get("*", (req, res) => {
+    res.sendFile(__dirname + "/build/index.html");
+});
+server.listen(port);
+/* const io = require("socket.io")(port, {
     cors: {
         origin: ["http://localhost:3000", "https://rock-paper-scissors-onli-dc6c4.web.app/"]
     }
-});
+}); */
 
 const { startMatch, sendMove } = require("./game");
 
