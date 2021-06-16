@@ -9,7 +9,11 @@
   "author": "Landry Geiger",
   "license": "ISC",
   "dependencies": {
+    "dotenv": "^10.0.0",
     "firebase-admin": "^9.9.0",
     "socket.io": "^4.1.2"
+  },
+  "engines": {
+    "node": "14.x"
   }
 }
