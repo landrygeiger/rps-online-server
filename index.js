@@ -7,7 +7,11 @@ admin.initializeApp({
 const db = admin.firestore();
 
 // Create server socket
-const io = require("socket.io")(3030, {
+let port = process.env.PORT;
+if (port == null || port == "") {
+    port = 3030;
+}
+const io = require("socket.io")(port, {
     cors: {
         origin: ["http://localhost:3000", "https://rock-paper-scissors-onli-dc6c4.web.app/"]
     }
