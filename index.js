@@ -19,7 +19,12 @@ let port = process.env.PORT;
 if (port == null || port == "") {
     port = 3030;
 }
-const io = require("socket.io")(port, {
+const INDEX = "/build/index.html";
+const express = require("express");
+const server = express()
+    .use((req, res) => res.sendFile(INDEX, { root: __dirname }))
+    .listen(port);
+const io = require("socket.io")(server, {
     cors: {
         origin: ["http://localhost:3000", "https://rock-paper-scissors-onli-dc6c4.web.app/"]
     }
