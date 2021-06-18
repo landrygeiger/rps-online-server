@@ -56,6 +56,8 @@ io.on("connection", socket => {
             },
             player1: "Waiting...",
             player2: "Waiting...",
+            player1Id: "none",
+            player2Id: "none",
             player1Score: 0,
             player2Score: 0
         })
@@ -67,7 +69,10 @@ io.on("connection", socket => {
     });
 
     // Client attempts to join a match
-    socket.on("join-match", (user, matchId, admitUser) => {
+    socket.on("join-match", async (user, matchId, admitUser) => {
+        
+        const userDoc = await db.collection("users").doc(user.uid).get();
+        const username = userDoc.data().username;
         // Get match document in datebase
         const docRef = db.collection("active-matches").doc(matchId);
         docRef.get().then(doc => {
@@ -76,21 +81,21 @@ io.on("connection", socket => {
 
 
                 // Admit player 1
-                if (matchData.player1 === "Waiting..." || matchData.player1 === user.email) {
-                    docRef.update({ player1: user.email }).then(() => {
-                        console.log(`User ${socket.id} (${user.email}) admitted into match ${matchId} as player 1.`);
+                if (matchData.player1 === "Waiting..." || matchData.player1 === username) {
+                    docRef.update({ player1: username, player1Id: user.uid }).then(() => {
+                        console.log(`User ${socket.id} (${username}) admitted into match ${matchId} as player 1.`);
                         socket.join(matchId)
                         admitUser(true);
                     });
 
                 // Admit player 2
-                } else if (matchData.player2 === "Waiting..." || matchData.player2 === user.email) {
-                    docRef.update({ player2: user.email }).then(() => {
-                        console.log(`User ${socket.id} (${user.email}) admitted into match ${matchId} as player 2.`);
+                } else if (matchData.player2 === "Waiting..." || matchData.player2 === username) {
+                    docRef.update({ player2: username, player2Id: user.uid }).then(() => {
+                        console.log(`User ${socket.id} (${username}) admitted into match ${matchId} as player 2.`);
                         
                         // Start match if both players have joined
                         if (matchData.status.state === "waiting-for-players") {
-                            startMatch(io, matchId, docRef);
+                            startMatch(db, matchId, docRef, io);
                         }
 
                         socket.join(matchId);
@@ -98,17 +103,26 @@ io.on("connection", socket => {
                     });
                 } else {
                     admitUser(false);
-                    console.log(`User ${socket.id} (${user.email}) attempted to enter full match with id ${matchId}.`);
+                    console.log(`User ${socket.id} (${username}) attempted to enter full match with id ${matchId}.`);
                 }
             } else {
-                console.log(`User ${socket.id} (${user.email}) attempted to enter unknown match with id ${matchId}.`)
+                console.log(`User ${socket.id} (${username}) attempted to enter unknown match with id ${matchId}.`)
                 admitUser(false);
             }
         })
     });
 
-    socket.on("send-move", (user, matchId, move) => {
-        console.log(`Received move ${move} from user ${socket.id} (${user.email}) in match ${matchId}`);
-        sendMove(user, matchId, move);
+    socket.on("send-move", (username, matchId, move) => {
+        console.log(`Received move ${move} from user ${socket.id} (${username}) in match ${matchId}`);
+        sendMove(username, matchId, move);
     });
+
+    socket.on("leave-match", (matchId) => {
+        try {
+            socket.leave(matchId);
+        } catch {
+            console.log("An error occurred while a user attempted to leave match.");
+        }
+        
+    })
 });

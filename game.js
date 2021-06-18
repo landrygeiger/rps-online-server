@@ -3,8 +3,7 @@ const firebase = require("firebase-admin");
 //Keep track of all in progress matches
 const matches = [];
 
-const startMatch = async (io, matchId, docRef) => {
-    // io.to(matchId).emit("start-match");
+const startMatch = async (db, matchId, docRef, io) => {
     await docRef.update({
         status: { 
             state: "starting", 
@@ -85,7 +84,7 @@ const startMatch = async (io, matchId, docRef) => {
             winner = "tie";
         // Nobody responded - end game
         } else {
-            console.log(`Ending match ${matchId}`);
+            console.log(`Ending match ${matchId}.`);
             break;
         }
         
@@ -108,10 +107,35 @@ const startMatch = async (io, matchId, docRef) => {
         status: {
             state: "complete",
             data : {
-                winner: matchObj.player1Score > matchObj.player2Score ? matchObj.player1 : matchObj.player1Score !== matchObj.player2Score ? matchObj.player2 : "Nobody"
+                winner: matchObj.player1Score > matchObj.player2Score ? matchObj.player1 : matchObj.player1Score !== matchObj.player2Score ? matchObj.player2 : "Nobody",
+                count: 10
             }
         }
     });
+
+    const finalMatchDoc = await docRef.get();
+
+    await db.collection("completed-matches").doc(matchId).set({ ...finalMatchDoc.data() });
+
+    const p1Ref = db.collection("users").doc(finalMatchDoc.data().player1Id);
+    const p2Ref = db.collection("users").doc(finalMatchDoc.data().player2Id);
+
+    await p1Ref.update({
+        matchesPlayed: firebase.firestore.FieldValue.arrayUnion(matchId)
+    });
+    await p2Ref.update({
+        matchesPlayed: firebase.firestore.FieldValue.arrayUnion(matchId)
+    });
+
+    await countdown(10, docRef, matchObj, "status.data.count");
+    io.to(matchId).emit("kick-match");
+
+    setTimeout(() => {
+        docRef.delete();
+        console.log(`Match ${matchId} successfully ended.`);
+    }, 5000); 
+
+    
 }
 
 const countdown = (count, docRef, matchObj, propToUpdate) => {
@@ -135,9 +159,9 @@ const countdown = (count, docRef, matchObj, propToUpdate) => {
     })
 }
 
-const sendMove = (user, matchId, move) => {
+const sendMove = (username, matchId, move) => {
     const match = getMatch(matchId);
-    const property = match.player1 === user.email ? "player1Move" : "player2Move";
+    const property = match.player1 === username ? "player1Move" : "player2Move";
     getMatch(matchId)[property] = move;
 }
 
